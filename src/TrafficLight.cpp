@@ -12,12 +12,10 @@ T MessageQueue<T>::receive()
     // FP.5a : The method receive should use std::unique_lock<std::mutex> and _condition.wait() 
     // to wait for and receive new messages and pull them from the queue using move semantics. 
     // The received object should then be returned by the receive function. 
-    std::unique_lock<std::mutex> lock(_mutex);
+    std::unique_lock<std::mutex> ulock(_mutex);
 
     // wait
-    _cond.wait(lock, [this]{return !_queue.empty();});
-
-    std::cout << "entry";
+    _cond.wait(ulock, [this]{return !_queue.empty();});
 
     // return element
     T output = std::move(_queue.back());
@@ -34,7 +32,7 @@ void MessageQueue<T>::send(T &&msg)
     std::lock_guard<std::mutex> guard(_mutex);
 
     // add msg to Q
-    _queue.push_back(std::move(msg));
+    _queue.emplace_back(msg);
 
     _cond.notify_one();
 }
@@ -80,7 +78,7 @@ void TrafficLight::simulate()
     std::lock_guard<std::mutex> guard(_mutex);
     
     // call thread
-      
+    threads.emplace_back(std::thread(&TrafficLight::cycleThroughPhases, this));
 }
 
 // virtual function which is executed in a thread
@@ -103,12 +101,9 @@ void TrafficLight::cycleThroughPhases()
         //time difference
         auto end = std::chrono::system_clock::now();
         auto delta = std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
-       std::cout << "delta: " + std::to_string(delta) + "\n";
-        if (duration(rng) < delta)
+       
+        if (duration(rng) <= delta)
         {
-            //
-            std::cout << "uhu\n";
-
             // toggle phase
             _currentPhase = static_cast<TrafficLightPhase>((static_cast<int>(_currentPhase) + 1) % 2);
 
